@@ -227,11 +227,11 @@ def mkdt(dtstr):
         return datetime.datetime.strptime(dtstr.split('.')[0], '%Y-%m-%d %H:%M:%S')
 
 def run_type(gamename):
-    m = RUN_TYPES_PAT.match(gamename.lower())
-    if m:
-        return m.groups()[0]
-    else:
-        return gamename
+    if gamename is not None:
+        m = RUN_TYPES_PAT.match(gamename.lower())
+        if m:
+            return m.groups()[0]
+    return gamename
 
 def log(*args):
     try:

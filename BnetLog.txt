@@ -1,0 +1,7 @@
+9/2 22:41:19.888  Connecting to Battle.net...
+9/2 22:41:19.929      querying gateway play.slashdiablo.net
+9/2 22:41:20.102      searching for the fastest server
+9/2 22:41:20.200      Connected to server 75.191.167.118
+9/2 22:41:20.211      accessing accounts
+9/2 22:41:20.471      Checking for the latest version
+9/2 22:41:20.797      Connected to Battle.net
