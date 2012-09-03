@@ -38,7 +38,7 @@ def teardown_request(exception):
 # routing
 @app.route('/', methods=['POST', 'GET'])
 def route():
-    print 'route'
+    log('route')
     if request.method == 'POST':
         log(dict(request.form))
         return post()
@@ -66,7 +66,7 @@ def post():
 
     if status == 'entered':
         if gamename is None:
-            print request.form
+            log('gamename=None:', request.form)
         rtype = run_type(gamename)
         group_id = get_group(char_id)
         start_run(group_id, rtype, gamename)
@@ -204,7 +204,7 @@ def stop_run(group_id):
             cursor.execute(sql, (now(), run.id))
             db.commit()
         else:
-            print 'run is None'
+            log('run is None')
 
 def get_run(group_id):
     with closing(connect_db()) as db:
