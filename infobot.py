@@ -90,6 +90,9 @@ def get_stats(charname):
             types[rtype]['count'] += 1
             types[rtype]['total_sec'] += run.seconds()
 
+    for rtype in types.keys():
+        types[rtype]['avg'] = types[rtype]['total_sec'] / types[rtype]['count']
+
     return '<pre>%s</pre>' % pprint.pformat(types)
 
 ######################################################################
