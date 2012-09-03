@@ -17,7 +17,7 @@ DEBUG = True
 app = Flask(__name__)
 app.config.from_object(__name__)
 
-RUN_TYPES = ['meph', 'trav', 'baal', 'mf', 'chaos',]
+RUN_TYPES = ['meph', 'trav', 'baal', 'mf', 'chaos', 'pind', 'count']
 RUN_TYPES_PAT = re.compile('(%s)' % '|'.join(RUN_TYPES))
 
 RUN_COL_NAMES = ['id', 'group_id', 'run_type', 'gamename', 'start_dt', 'end_dt']
@@ -68,7 +68,6 @@ def post():
         group_id = get_group(char_id)
         start_run(group_id, rtype, gamename)
     elif status == 'left':
-        print 'stop run'
         stop_run(char_id)
 
     return ''
@@ -178,7 +177,6 @@ def start_run(group_id, run_type, gamename):
 def stop_run(group_id):
     with closing(connect_db()) as db:
         run = get_run(group_id)
-        print run.to_dict()
         if run is not None:
             sql = 'update runs set end_dt=? where id=?'
         cursor = db.cursor()
@@ -230,7 +228,6 @@ def mkdt(dtstr):
 
 def run_type(gamename):
     m = RUN_TYPES_PAT.match(gamename.lower())
-    print m
     if m:
         return m.groups()[0]
     else:
