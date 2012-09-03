@@ -7,9 +7,10 @@ import pprint
 import os
 
 # configuration
-DATABASE = os.path.join(os.path.dirname(__file__), 'infobot.db')
-SCHEMA_FILE = 'schema.sql'
-LOG_FILE = 'infobot.log'
+BASE_DIR = os.path.dirname(__file__)
+DATABASE = os.path.join(BASE_DIR, 'infobot.db')
+SCHEMA_FILE = os.path.join(BASE_DIR, 'schema.sql')
+LOG_FILE = os.path.join(BASE_DIR, 'infobot.log')
 DEBUG = True
 
 # application
