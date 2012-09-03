@@ -38,6 +38,7 @@ def teardown_request(exception):
 # routing
 @app.route('/', methods=['POST', 'GET'])
 def route():
+    print 'route'
     if request.method == 'POST':
         log(dict(request.form))
         return post()
@@ -202,6 +203,8 @@ def stop_run(group_id):
             cursor = db.cursor()
             cursor.execute(sql, (now(), run.id))
             db.commit()
+        else:
+            print 'run is None'
 
 def get_run(group_id):
     with closing(connect_db()) as db:
