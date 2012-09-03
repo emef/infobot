@@ -161,7 +161,7 @@ class Run(object):
         self.end_dt = mkdt(end_dt)
 
     def to_dict(self):
-        return {col: getattr(self, col) for col in RUN_COL_NAMES}
+        return dict((col, getattr(self, col)) for col in RUN_COL_NAMES)
 
 def start_run(group_id, run_type, gamename):
     with closing(connect_db()) as db:
