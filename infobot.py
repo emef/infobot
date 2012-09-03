@@ -64,6 +64,8 @@ def post():
     char_id = get_char(charname)
 
     if status == 'entered':
+        if gamename is None:
+            print request.form
         rtype = run_type(gamename)
         group_id = get_group(char_id)
         start_run(group_id, rtype, gamename)
@@ -239,10 +241,9 @@ def mkdt(dtstr):
         return datetime.datetime.strptime(dtstr.split('.')[0], '%Y-%m-%d %H:%M:%S')
 
 def run_type(gamename):
-    if gamename is not None:
-        m = RUN_TYPES_PAT.search(gamename.lower())
-        if m:
-            return m.groups()[0]
+    m = RUN_TYPES_PAT.search(gamename.lower())
+    if m:
+        return m.groups()[0]
     return gamename
 
 def log(*args):
