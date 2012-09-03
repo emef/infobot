@@ -38,7 +38,6 @@ def teardown_request(exception):
 # routing
 @app.route('/', methods=['POST', 'GET'])
 def route():
-    log('route')
     if request.method == 'POST':
         log(dict(request.form))
         return post()
@@ -63,17 +62,13 @@ def post():
 
     charname, status, gamename = parse_message(message)
     char_id = get_char(charname)
-
-    log(charname, status, gamename)
+    group_id = get_group(char_id)
 
     if status == 'entered':
-        if gamename is None:
-            log('gamename=None:', request.form)
         rtype = run_type(gamename)
-        group_id = get_group(char_id)
         start_run(group_id, rtype, gamename)
     elif status == 'left':
-        stop_run(char_id)
+        stop_run(group_id)
 
     return ''
 
@@ -205,8 +200,6 @@ def stop_run(group_id):
             cursor = db.cursor()
             cursor.execute(sql, (now(), run.id))
             db.commit()
-        else:
-            log('run is None')
 
 def get_run(group_id):
     with closing(connect_db()) as db:
