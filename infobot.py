@@ -240,7 +240,7 @@ def mkdt(dtstr):
 
 def run_type(gamename):
     if gamename is not None:
-        m = RUN_TYPES_PAT.match(gamename.lower())
+        m = RUN_TYPES_PAT.search(gamename.lower())
         if m:
             return m.groups()[0]
     return gamename
