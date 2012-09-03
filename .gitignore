@@ -6,3 +6,4 @@ infobot.wsgi
 *~
 *.pyc
 *.log
+BnetLog.txt
