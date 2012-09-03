@@ -60,15 +60,18 @@ def print_log():
 def post():
     message = request.form['Message']
 
-    charname, status, gamename = parse_message(message)
-    char_id = get_char(charname)
-    group_id = get_group(char_id)
+    try:
+        charname, status, gamename = parse_message(message)
+        char_id = get_char(charname)
+        group_id = get_group(char_id)
 
-    if status == 'entered':
-        rtype = run_type(gamename)
-        start_run(group_id, rtype, gamename)
-    elif status == 'left':
-        stop_run(group_id)
+        if status == 'entered':
+            rtype = run_type(gamename)
+            start_run(group_id, rtype, gamename)
+        elif status == 'left':
+            stop_run(group_id)
+    except Exception as e:
+        log(str(e))
 
     return ''
 
