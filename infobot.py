@@ -71,7 +71,9 @@ def post():
         elif status == 'left':
             stop_run(group_id)
     except Exception as e:
+        log('-----------------------------------------')
         log(str(e))
+        log(message)
 
     return ''
 
