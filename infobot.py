@@ -64,6 +64,8 @@ def post():
     charname, status, gamename = parse_message(message)
     char_id = get_char(charname)
 
+    log(charname, status, gamename)
+
     if status == 'entered':
         if gamename is None:
             log('gamename=None:', request.form)
