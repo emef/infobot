@@ -4,9 +4,10 @@ import sqlite3
 import datetime
 import re
 import pprint
+import os
 
 # configuration
-DATABASE = 'infobot.db'
+DATABASE = os.path.join(os.path.dirname(__file__), 'infobot.db')
 SCHEMA_FILE = 'schema.sql'
 LOG_FILE = 'infobot.log'
 DEBUG = True
