@@ -78,9 +78,19 @@ def home():
 def get_stats(charname):
     char_id = get_char(charname)
     runs = get_all_runs(char_id)
-    for key in runs.keys():
-        runs[key] = map(Run.to_dict, runs[key])
-    return '<pre>%s</pre>' % pprint.pformat(runs)
+    types = {}
+    for run in runs:
+        if run.end_dt is not None:
+            rtype = run.run_type
+            if not rtype in types:
+                types[rtype] = {
+                    'count': 0,
+                    'total_sec': 0
+                }
+            types[rtype]['count'] += 1
+            types[rtype]['total_sec'] += run.seconds()
+
+    return '<pre>%s</pre>' % pprint.pformat(types)
 
 ######################################################################
 # message parsing
@@ -164,6 +174,11 @@ class Run(object):
     def to_dict(self):
         return dict((col, getattr(self, col)) for col in RUN_COL_NAMES)
 
+    def seconds(self):
+        if self.end_dt:
+            c = self.end_dt - self.start_dt
+            return abs(c.days * 86400 + c.seconds)
+
 def start_run(group_id, run_type, gamename):
     with closing(connect_db()) as db:
         sql = '''insert
@@ -179,9 +194,9 @@ def stop_run(group_id):
         run = get_run(group_id)
         if run is not None:
             sql = 'update runs set end_dt=? where id=?'
-        cursor = db.cursor()
-        cursor.execute(sql, (now(), run.id))
-        db.commit()
+            cursor = db.cursor()
+            cursor.execute(sql, (now(), run.id))
+            db.commit()
 
 def get_run(group_id):
     with closing(connect_db()) as db:
@@ -208,13 +223,7 @@ def get_all_runs(char_id):
                  order by start_dt desc''' % RUN_COLS
         cursor = db.cursor()
         cursor.execute(sql, (char_id,))
-        runs = {}
-        for row in cursor:
-            run = Run(*row)
-            if not run.group_id in runs:
-                runs[run.group_id] = []
-            runs[run.group_id].append(run)
-        return runs
+        return map(lambda row: Run(*row), cursor)
 
 
 ######################################################################
