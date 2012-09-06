@@ -71,6 +71,7 @@ def post():
 
     if status == 'entered' and gamename is not None:
         start_run(group_id, gamename)
+        return start_response(user_id, group_id, gamename)
     elif status == 'left':
         stop_run(group_id)
 
@@ -149,6 +150,13 @@ def parse_gamename(submsg):
         gamename = m.groups()[0]
         return gamename
 
+######################################################################
+# responses
+def start_response(user_id, group_id, gamename):
+    rtype = run_type(gamename)
+    runs = get_all_runs(user_id)
+    count = sum(1 if run.type() == rtype else 0 for run in runs)
+    return '%s: %d runs' % (rtype, count)
 
 ######################################################################
 # db
@@ -303,29 +311,6 @@ def is_outlier(x, avg):
 
 
 
-
-
-def html_table(dct, cols):
-    base_fmt = '<table>\n%s\n</table>'
-
-    header = html_row(cols)
-    rows = []
-    for key, subdct in dct.items():
-        values = []
-        for col in cols:
-            if col in subdct:
-                values.append(subdct[col])
-        rows.append(html_row([key] + values))
-
-    return base_fmt % '\n'.join([header] + rows)
-
-
-def html_row(lst):
-    cols = map(html_col, lst)
-    return '<tr>\n\t%s\n</tr>' % '\n\t'.join(cols)
-
-def html_col(inner):
-    return '<td>%s</td>' % inner
 
 
 if __name__ == "__main__":
