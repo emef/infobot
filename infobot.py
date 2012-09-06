@@ -18,10 +18,15 @@ app = Flask(__name__)
 app.config.from_object(__name__)
 
 RUN_TYPES = ['meph', 'trav', 'baal', 'mf', 'chaos', 'pind', 'count']
-RUN_TYPES_PAT = re.compile('(%s)' % '|'.join(RUN_TYPES))
+COMMON_PAT = re.compile('(%s)' % '|'.join(RUN_TYPES))
+CUSTOM_PAT = re.compile('([^\d]+)\d')
 
-RUN_COL_NAMES = ['id', 'group_id', 'run_type', 'gamename', 'start_dt', 'end_dt']
+RUN_COL_NAMES = ['id', 'group_id', 'gamename', 'start_dt', 'end_dt']
 RUN_COLS = ', '.join(RUN_COL_NAMES)
+
+OUTLIER = 5.0
+MIN_RUNS = 10
+
 
 ######################################################################
 # "middleware"
@@ -44,9 +49,9 @@ def route():
     else:
         return home()
 
-@app.route('/<charname>/', methods=['GET'])
-def stats(charname):
-    return get_stats(charname)
+@app.route('/<username>/', methods=['GET'])
+def stats(username):
+    return get_stats(username)
 
 @app.route('/requests/', methods=['GET'])
 def print_log():
@@ -60,13 +65,12 @@ def print_log():
 def post():
     message = request.form['Message']
 
-    charname, status, gamename = parse_message(message)
-    char_id = get_char(charname)
-    group_id = get_group(char_id)
+    username, status, gamename = parse_message(message)
+    user_id = get_user(username)
+    group_id = get_group(user_id)
 
     if status == 'entered' and gamename is not None:
-        rtype = run_type(gamename)
-        start_run(group_id, rtype, gamename)
+        start_run(group_id, gamename)
     elif status == 'left':
         stop_run(group_id)
 
@@ -75,25 +79,58 @@ def post():
 def home():
     return 'slashdiablo stats service'
 
-def get_stats(charname):
-    char_id = get_char(charname)
-    runs = get_all_runs(char_id)
-    types = {}
+def get_stats(username):
+    user_id = get_user(username)
+    runs = get_all_runs(user_id)
+    initial = {}
+    final = {}
+    totals = {}
+    output = {}
+
+    # first pass, calc initial average
+    for run in runs:
+        rtype = run.type()
+        if not rtype in initial:
+            initial[rtype] = {
+                'count': 0,
+                'total_sec': 0
+            }
+
+        totals[rtype] = totals[rtype] + 1 if (rtype in totals) else 1
+
+        if run.end_dt is not None:
+            initial[rtype]['count'] += 1
+            initial[rtype]['total_sec'] += run.seconds()
+
+    for rtype in initial.keys():
+        initial[rtype]['avg'] = initial[rtype]['total_sec'] / initial[rtype]['count']
+
+    # throw out outliers and recalculate
     for run in runs:
         if run.end_dt is not None:
-            rtype = run.run_type
-            if not rtype in types:
-                types[rtype] = {
+            rtype = run.type()
+            nruns = initial[rtype]['count']
+            avg = initial[rtype]['count']
+
+            if not rtype in final:
+                final[rtype] = {
                     'count': 0,
                     'total_sec': 0
                 }
-            types[rtype]['count'] += 1
-            types[rtype]['total_sec'] += run.seconds()
 
-    for rtype in types.keys():
-        types[rtype]['avg'] = types[rtype]['total_sec'] / types[rtype]['count']
+            if (nruns < MIN_RUNS) or not is_outlier(run.seconds(), avg):
+                final[rtype]['count'] += 1
+                final[rtype]['total_sec'] += run.seconds()
 
-    return '<pre>%s</pre>' % pprint.pformat(types)
+    for rtype in final.keys():
+        avg = final[rtype]['total_sec'] / final[rtype]['count']
+        count = totals[rtype]
+        output[rtype] = {
+            'avg': avg,
+            'count': count
+        }
+
+    return '<pre>%s</pre>' % pprint.pformat(output)
 
 ######################################################################
 # message parsing
@@ -101,9 +138,9 @@ MSG_PAT = re.compile('^Watched user ([^ ]+) has (left|entered) (.+)')
 def parse_message(msg):
     m = MSG_PAT.match(msg)
     if m:
-        charname, status, submsg = m.groups()
+        username, status, submsg = m.groups()
         gamename = parse_gamename(submsg)
-        return (charname, status, gamename)
+        return (username, status, gamename)
 
 SUBMSG_PAT = re.compile('^a Diablo II [^"]+"([^"]+)"')
 def parse_gamename(submsg):
@@ -124,52 +161,51 @@ def init_db():
             db.cursor().executescript(f.read())
         db.commit()
 
-# chars
-def add_char(charname):
+# users
+def add_user(username):
     with closing(connect_db()) as db:
-        sql = 'insert into chars (charname) values (?)'
+        sql = 'insert into users (username) values (?)'
         cursor = db.cursor()
-        cursor.execute(sql, (charname,))
+        cursor.execute(sql, (username,))
         db.commit()
         return cursor.lastrowid
 
-def get_char(charname):
+def get_user(username):
     with closing(connect_db()) as db:
-        sql = 'select id from chars where charname=?'
+        sql = 'select id from users where username=?'
         cursor = db.cursor()
-        cursor.execute(sql, (charname,))
+        cursor.execute(sql, (username,))
         result = cursor.fetchone()
         if result is not None:
             return result[0]
         else:
-            return add_char(charname)
+            return add_user(username)
 
 # groups
-def add_group(char_id):
+def add_group(user_id):
     with closing(connect_db()) as db:
-        sql = 'insert into run_groups (char_id) values (?)'
+        sql = 'insert into run_groups (user_id) values (?)'
         cursor = db.cursor()
-        cursor.execute(sql, (char_id,))
+        cursor.execute(sql, (user_id,))
         db.commit()
         return cursor.lastrowid
 
-def get_group(char_id):
+def get_group(user_id):
     with closing(connect_db()) as db:
-        sql = 'select id from run_groups where char_id=? order by id desc'
+        sql = 'select id from run_groups where user_id=? order by id desc'
         cursor = db.cursor()
-        cursor.execute(sql, (char_id,))
+        cursor.execute(sql, (user_id,))
         result = cursor.fetchone()
         if result is not None:
             return result[0]
         else:
-            return add_group(char_id)
+            return add_group(user_id)
 
 # runs
 class Run(object):
-    def __init__(self, id, group_id, run_type, gamename, start_dt, end_dt):
+    def __init__(self, id, group_id, gamename, start_dt, end_dt):
         self.id = id
         self.group_id = group_id
-        self.run_type = run_type
         self.gamename = gamename
         self.start_dt = mkdt(start_dt)
         self.end_dt = mkdt(end_dt)
@@ -182,13 +218,16 @@ class Run(object):
             c = self.end_dt - self.start_dt
             return abs(c.days * 86400 + c.seconds)
 
-def start_run(group_id, run_type, gamename):
+    def type(self):
+        return run_type(self.gamename)
+
+def start_run(group_id, gamename):
     with closing(connect_db()) as db:
         sql = '''insert
-                 into runs (group_id, run_type, gamename, start_dt)
-                 values (?, ?, ?, ?)'''
+                 into runs (group_id, gamename, start_dt)
+                 values (?, ?, ?)'''
         cursor = db.cursor()
-        cursor.execute(sql, (group_id, run_type, gamename, now()))
+        cursor.execute(sql, (group_id, gamename, now()))
         db.commit()
         return cursor.lastrowid
 
@@ -215,17 +254,17 @@ def get_run(group_id):
         else:
             return None
 
-def get_all_runs(char_id):
+def get_all_runs(user_id):
     with closing(connect_db()) as db:
         sql = '''select %s
                  from runs
                  where group_id in (
                      select id from run_groups
-                     where char_id = ?
+                     where user_id = ?
                  )
                  order by start_dt desc''' % RUN_COLS
         cursor = db.cursor()
-        cursor.execute(sql, (char_id,))
+        cursor.execute(sql, (user_id,))
         return map(lambda row: Run(*row), cursor)
 
 
@@ -239,9 +278,17 @@ def mkdt(dtstr):
         return datetime.datetime.strptime(dtstr.split('.')[0], '%Y-%m-%d %H:%M:%S')
 
 def run_type(gamename):
-    m = RUN_TYPES_PAT.search(gamename.lower())
+    # check common run types
+    m = COMMON_PAT.search(gamename.lower())
     if m:
         return m.groups()[0]
+
+    # check for custom type
+    m = CUSTOM_PAT.match(gamename.lower())
+    if m:
+        return m.groups()[0]
+
+
     return gamename
 
 def log(*args):
@@ -250,6 +297,35 @@ def log(*args):
             f.write('%s\n' % ' '.join(map(str, args)))
     except:
         pass
+
+def is_outlier(x, avg):
+    return x < (avg / OUTLIER) or x > (avg * OUTLIER)
+
+
+
+
+
+def html_table(dct, cols):
+    base_fmt = '<table>\n%s\n</table>'
+
+    header = html_row(cols)
+    rows = []
+    for key, subdct in dct.items():
+        values = []
+        for col in cols:
+            if col in subdct:
+                values.append(subdct[col])
+        rows.append(html_row([key] + values))
+
+    return base_fmt % '\n'.join([header] + rows)
+
+
+def html_row(lst):
+    cols = map(html_col, lst)
+    return '<tr>\n\t%s\n</tr>' % '\n\t'.join(cols)
+
+def html_col(inner):
+    return '<td>%s</td>' % inner
 
 
 if __name__ == "__main__":
