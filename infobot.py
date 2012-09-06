@@ -18,7 +18,18 @@ app = Flask(__name__)
 app.config.from_object(__name__)
 
 RUN_TYPES = ['meph', 'trav', 'baal', 'mf', 'chaos', 'pind', 'count']
-COMMON_PAT = re.compile('(%s)' % '|'.join(RUN_TYPES))
+
+COMMON_RUNS = {
+    'meph': 'Mephisto',
+    'trav': 'Travincal',
+    'baal': 'Baal',
+    'mf': 'MF',
+    'chaos': 'Chaos',
+    'pind': 'Pindleskin',
+    'count': 'Countess',
+}
+
+COMMON_PAT = re.compile('(%s)' % '|'.join(COMMON_RUNS.keys()))
 CUSTOM_PAT = re.compile('([^\d]+)\d')
 
 RUN_COL_NAMES = ['id', 'group_id', 'gamename', 'start_dt', 'end_dt']
@@ -289,7 +300,7 @@ def run_type(gamename):
     # check common run types
     m = COMMON_PAT.search(gamename.lower())
     if m:
-        return m.groups()[0]
+        return COMMON_RUNS[m.groups()[0]]
 
     # check for custom type
     m = CUSTOM_PAT.match(gamename.lower())
