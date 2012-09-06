@@ -17,8 +17,6 @@ DEBUG = True
 app = Flask(__name__)
 app.config.from_object(__name__)
 
-RUN_TYPES = ['meph', 'trav', 'baal', 'mf', 'chaos', 'pind', 'count']
-
 COMMON_RUNS = {
     'meph': 'Mephisto',
     'trav': 'Travincal',
@@ -298,15 +296,17 @@ def mkdt(dtstr):
 
 def run_type(gamename):
     # check common run types
-    m = COMMON_PAT.search(gamename.lower())
-    if m:
-        return COMMON_RUNS[m.groups()[0]]
+    try:
+        m = COMMON_PAT.search(gamename.lower())
+        if m:
+            return COMMON_RUNS[m.groups()[0]]
 
-    # check for custom type
-    m = CUSTOM_PAT.match(gamename.lower())
-    if m:
-        return m.groups()[0]
-
+        # check for custom type
+        m = CUSTOM_PAT.match(gamename.lower())
+        if m:
+            return m.groups()[0]
+    except Exception as e:
+        log(gamename, str(e))
 
     return gamename
 
