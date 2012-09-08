@@ -60,7 +60,9 @@ def route():
 
 @app.route('/<username>/', methods=['GET'])
 def stats(username):
-    return get_stats(username)
+    user_id = get_user(username)
+    stats = get_stats(group_id)
+    return '<pre>%s</pre>' % pprint.pformat(stats)
 
 @app.route('/requests/', methods=['GET'])
 def print_log():
@@ -80,7 +82,7 @@ def post():
 
     if status == 'entered' and gamename is not None:
         start_run(group_id, gamename)
-        return start_response(user_id, group_id, gamename)
+        return start_response(group_id, gamename)
     elif status == 'left':
         stop_run(group_id)
 
@@ -89,9 +91,8 @@ def post():
 def home():
     return 'slashdiablo stats service'
 
-def get_stats(username):
-    user_id = get_user(username)
-    runs = get_all_runs(user_id)
+def get_stats(group_id):
+    runs = get_group_runs(group_id)
     initial = {}
     final = {}
     totals = {}
@@ -100,15 +101,15 @@ def get_stats(username):
     # first pass, calc initial average
     for run in runs:
         rtype = run.type()
-        if not rtype in initial:
-            initial[rtype] = {
-                'count': 0,
-                'total_sec': 0
-            }
-
         totals[rtype] = totals[rtype] + 1 if (rtype in totals) else 1
 
         if run.end_dt is not None:
+            if not rtype in initial:
+                initial[rtype] = {
+                    'count': 0,
+                    'total_sec': 0
+                }
+
             initial[rtype]['count'] += 1
             initial[rtype]['total_sec'] += run.seconds()
 
@@ -140,7 +141,14 @@ def get_stats(username):
             'count': count
         }
 
-    return '<pre>%s</pre>' % pprint.pformat(output)
+    for rtype in totals.keys():
+        if rtype not in output:
+            output[rtype] = {
+                'count': 1,
+                'avg': 0
+            }
+
+    return output
 
 ######################################################################
 # message parsing
@@ -161,11 +169,13 @@ def parse_gamename(submsg):
 
 ######################################################################
 # responses
-def start_response(user_id, group_id, gamename):
+def start_response(group_id, gamename):
     rtype = run_type(gamename)
-    runs = get_all_runs(user_id)
-    count = sum(1 if run.type() == rtype else 0 for run in runs)
-    return '%s: %d runs' % (rtype, count)
+    stats = get_stats(group_id)
+    print stats
+    count = stats[rtype]['count']
+    avg = stats[rtype]['avg']
+    return '%s: %d runs (%dsec/run)' % (rtype, count, avg)
 
 ######################################################################
 # db
@@ -284,6 +294,16 @@ def get_all_runs(user_id):
         cursor.execute(sql, (user_id,))
         return map(lambda row: Run(*row), cursor)
 
+def get_group_runs(group_id):
+    with closing(connect_db()) as db:
+        sql = '''select %s
+                 from runs
+                 where group_id = ?
+                 order by start_dt desc''' % RUN_COLS
+        cursor = db.cursor()
+        cursor.execute(sql, (group_id,))
+        return map(lambda row: Run(*row), cursor)
+
 
 ######################################################################
 # utils
@@ -299,7 +319,7 @@ def run_type(gamename):
     try:
         m = COMMON_PAT.search(gamename.lower())
         if m:
-            return COMMON_RUNS[m.groups()[0]]
+            return m.groups()[0]
 
         # check for custom type
         m = CUSTOM_PAT.match(gamename.lower())
