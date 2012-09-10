@@ -103,10 +103,10 @@ def get_stats(group_id):
     # first pass, group runs
     for run in runs:
         rtype = run.type()
-        if not rtype in runs_by_type:
-            runs_by_type[rtype] = []
-
         if run.end_dt is not None:
+            if not rtype in runs_by_type:
+                runs_by_type[rtype] = []
+
             runs_by_type[rtype].append(run)
 
     # calculate boundary quantiles
