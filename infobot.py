@@ -115,9 +115,17 @@ def get_stats(group_id):
             stats[rtype]['initial_sec'] += run.seconds()
 
     # calculate initial averages
+    zero_runs = set()
     for rtype in stats.keys():
-        avg = stats[rtype]['initial_sec'] / stats[rtype]['initial_count']
-        stats[rtype]['initial_avg'] = avg
+        if stats[rtype]['initial_count'] == 0:
+            zero_runs.add(rtype)
+        else:
+            avg = stats[rtype]['initial_sec'] / stats[rtype]['initial_count']
+            stats[rtype]['initial_avg'] = avg
+
+    # throw out zero runners
+    for rtype in zero_runs:
+        del stats[rtype]
 
     # throw out outliers and recalculate
     for run in runs:
