@@ -1,5 +1,6 @@
 from flask import Flask, request, g
 from contextlib import closing
+from quantile import quantile
 import sqlite3
 import datetime
 import re
@@ -33,7 +34,8 @@ CUSTOM_PAT = re.compile('([^\d]+)\d')
 RUN_COL_NAMES = ['id', 'group_id', 'gamename', 'start_dt', 'end_dt']
 RUN_COLS = ', '.join(RUN_COL_NAMES)
 
-OUTLIER = 3.0
+MIN_QUANT = 0.1
+MAX_QUANT = 0.9
 MIN_RUNS = 10
 
 
@@ -94,58 +96,48 @@ def home():
 
 def get_stats(group_id):
     runs = get_group_runs(group_id)
+    runs_by_type = {}
+    boundaries = {}
     stats = {}
 
-    # first pass, calc initial average
+    # first pass, group runs
     for run in runs:
         rtype = run.type()
-        if not rtype in stats:
-            stats[rtype] = {
-                'total': 0,
-                'initial_count': 0,
-                'initial_sec': 0,
-                'final_count': 0,
-                'final_sec': 0
-            }
-
-        stats[rtype]['total'] += 1
+        if not rtype in runs_by_type:
+            runs_by_type[rtype] = []
 
         if run.end_dt is not None:
-            stats[rtype]['initial_count'] += 1
-            stats[rtype]['initial_sec'] += run.seconds()
+            runs_by_type[rtype].append(run)
 
-    # calculate initial averages
-    zero_runs = set()
-    for rtype in stats.keys():
-        if stats[rtype]['initial_count'] == 0:
-            zero_runs.add(rtype)
-        else:
-            avg = stats[rtype]['initial_sec'] / stats[rtype]['initial_count']
-            stats[rtype]['initial_avg'] = avg
+    # calculate boundary quantiles
+    for rtype, runs in runs_by_type.items():
+        sec_gen = (r.seconds() for r in runs if r.end_dt is not None)
+        sorted_secs = sorted(sec_gen)
+        boundaries[rtype] = {
+            'min': quantile(sorted_secs, MIN_QUANT, 7, True),
+            'max': quantile(sorted_secs, MAX_QUANT, 7, True),
+        }
 
-    # throw out zero runners
-    for rtype in zero_runs:
-        del stats[rtype]
-
-    # throw out outliers and recalculate
-    for run in runs:
-        if run.end_dt is not None:
-            rtype = run.type()
-            nruns = stats[rtype]['initial_count']
-            avg = stats[rtype]['initial_sec'] / nruns
-
-            if (nruns < MIN_RUNS) or not is_outlier(run.seconds(), avg):
-                stats[rtype]['final_count'] += 1
-                stats[rtype]['final_sec'] += run.seconds()
+    # calculate stats using runs within the boundaries
+    for rtype, runs in runs_by_type.items():
+        nruns = len(runs)
+        stats[rtype] = {'count': 0, 'secs': 0, 'total': nruns}
+        for run in runs:
+            secs = run.seconds()
+            if run.end_dt is not None:
+                if nruns < MIN_RUNS or not is_outlier(secs, boundaries[rtype]):
+                    stats[rtype]['count'] += 1
+                    stats[rtype]['secs'] += secs
 
     output = {}
-    for rtype in stats.keys():
-        avg = stats[rtype]['final_sec'] / stats[rtype]['final_count']
-        count = stats[rtype]['total']
-        output[rtype] = {
-            'avg': avg,
-            'count': count
-        }
+    for rtype, stats in stats.items():
+        if stats['count'] > 0:
+            avg = stats['secs'] / stats['count']
+            count = stats['total']
+            output[rtype] = {
+                'avg': avg,
+                'count': count
+            }
 
     return output
 
@@ -335,12 +327,8 @@ def log(*args):
     except:
         pass
 
-def is_outlier(x, avg):
-    return x < (avg / OUTLIER) or x > (avg * OUTLIER)
-
-
-
-
+def is_outlier(x, boundaries):
+    return x < boundaries['min'] or x > boundaries['max']
 
 if __name__ == "__main__":
     app.debug = DEBUG
