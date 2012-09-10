@@ -132,6 +132,7 @@ def get_stats(group_id):
         if run.end_dt is not None:
             rtype = run.type()
             nruns = stats[rtype]['initial_count']
+            avg = stats[rtype]['initial_sec'] / nruns
 
             if (nruns < MIN_RUNS) or not is_outlier(run.seconds(), avg):
                 stats[rtype]['final_count'] += 1
