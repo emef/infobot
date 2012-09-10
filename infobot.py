@@ -99,6 +99,7 @@ def get_stats(group_id):
     runs_by_type = {}
     boundaries = {}
     stats = {}
+    last = {}
 
     # first pass, group runs
     for run in runs:
@@ -107,9 +108,12 @@ def get_stats(group_id):
             if not rtype in runs_by_type:
                 runs_by_type[rtype] = []
 
+            if not rtype in last:
+                last[rtype] = run.seconds()
+
             runs_by_type[rtype].append(run)
 
-    # calculate boundary quantiles
+    # calculate boundary quantiles and most recent run
     for rtype, runs in runs_by_type.items():
         sec_gen = (r.seconds() for r in runs if r.end_dt is not None)
         sorted_secs = sorted(sec_gen)
@@ -136,7 +140,8 @@ def get_stats(group_id):
             count = stats['total']
             output[rtype] = {
                 'avg': avg,
-                'count': count
+                'count': count,
+                'last': last[rtype]
             }
 
     return output
@@ -163,9 +168,12 @@ def parse_gamename(submsg):
 def start_response(group_id, gamename):
     rtype = run_type(gamename)
     stats = get_stats(group_id)
-    count = stats[rtype]['count']
-    avg = stats[rtype]['avg']
-    return '%s: %d runs at %d seconds on average' % (rtype, count, avg)
+    if rtype in stats:
+        count, avg, last = (stats[rtype][k] for k in ['count', 'avg', 'last'])
+        return '%s: %d runs. average %d seconds, last run %d seconds' % (
+            COMMON_RUNS.get(rtype, rtype), count, avg, last)
+    else:
+        return '%s: first run' % COMMON_RUNS.get(rtype, rtype)
 
 ######################################################################
 # db
