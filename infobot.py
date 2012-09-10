@@ -33,7 +33,7 @@ CUSTOM_PAT = re.compile('([^\d]+)\d')
 RUN_COL_NAMES = ['id', 'group_id', 'gamename', 'start_dt', 'end_dt']
 RUN_COLS = ', '.join(RUN_COL_NAMES)
 
-OUTLIER = 5.0
+OUTLIER = 2.0
 MIN_RUNS = 10
 
 
@@ -61,6 +61,7 @@ def route():
 @app.route('/<username>/', methods=['GET'])
 def stats(username):
     user_id = get_user(username)
+    group_id = get_group(user_id)
     stats = get_stats(group_id)
     return '<pre>%s</pre>' % pprint.pformat(stats)
 
@@ -93,60 +94,49 @@ def home():
 
 def get_stats(group_id):
     runs = get_group_runs(group_id)
-    initial = {}
-    final = {}
-    totals = {}
-    output = {}
+    stats = {}
 
     # first pass, calc initial average
     for run in runs:
         rtype = run.type()
-        totals[rtype] = totals[rtype] + 1 if (rtype in totals) else 1
+        if not rtype in stats:
+            stats[rtype] = {
+                'total': 0,
+                'initial_count': 0,
+                'initial_sec': 0,
+                'final_count': 0,
+                'final_sec': 0
+            }
+
+        stats[rtype]['total'] += 1
 
         if run.end_dt is not None:
-            if not rtype in initial:
-                initial[rtype] = {
-                    'count': 0,
-                    'total_sec': 0
-                }
+            stats[rtype]['initial_count'] += 1
+            stats[rtype]['initial_sec'] += run.seconds()
 
-            initial[rtype]['count'] += 1
-            initial[rtype]['total_sec'] += run.seconds()
-
-    for rtype in initial.keys():
-        initial[rtype]['avg'] = initial[rtype]['total_sec'] / initial[rtype]['count']
+    # calculate initial averages
+    for rtype in stats.keys():
+        avg = stats[rtype]['initial_sec'] / stats[rtype]['initial_count']
+        stats[rtype]['initial_avg'] = avg
 
     # throw out outliers and recalculate
     for run in runs:
         if run.end_dt is not None:
             rtype = run.type()
-            nruns = initial[rtype]['count']
-            avg = initial[rtype]['count']
-
-            if not rtype in final:
-                final[rtype] = {
-                    'count': 0,
-                    'total_sec': 0
-                }
+            nruns = stats[rtype]['initial_count']
 
             if (nruns < MIN_RUNS) or not is_outlier(run.seconds(), avg):
-                final[rtype]['count'] += 1
-                final[rtype]['total_sec'] += run.seconds()
+                stats[rtype]['final_count'] += 1
+                stats[rtype]['final_sec'] += run.seconds()
 
-    for rtype in final.keys():
-        avg = final[rtype]['total_sec'] / final[rtype]['count']
-        count = totals[rtype]
+    output = {}
+    for rtype in stats.keys():
+        avg = stats[rtype]['final_sec'] / stats[rtype]['final_count']
+        count = stats[rtype]['total']
         output[rtype] = {
             'avg': avg,
             'count': count
         }
-
-    for rtype in totals.keys():
-        if rtype not in output:
-            output[rtype] = {
-                'count': 1,
-                'avg': 0
-            }
 
     return output
 
@@ -172,7 +162,6 @@ def parse_gamename(submsg):
 def start_response(group_id, gamename):
     rtype = run_type(gamename)
     stats = get_stats(group_id)
-    print stats
     count = stats[rtype]['count']
     avg = stats[rtype]['avg']
     return '%s: %d runs (%dsec/run)' % (rtype, count, avg)

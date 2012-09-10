@@ -7,3 +7,4 @@ infobot.wsgi
 *.pyc
 *.log
 BnetLog.txt
+infobot-env
