@@ -165,7 +165,7 @@ def start_response(group_id, gamename):
     stats = get_stats(group_id)
     count = stats[rtype]['count']
     avg = stats[rtype]['avg']
-    return '%s: %d runs (%dsec/run)' % (rtype, count, avg)
+    return '%s: %d runs at %d seconds on average' % (rtype, count, avg)
 
 ######################################################################
 # db
