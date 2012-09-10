@@ -33,7 +33,7 @@ CUSTOM_PAT = re.compile('([^\d]+)\d')
 RUN_COL_NAMES = ['id', 'group_id', 'gamename', 'start_dt', 'end_dt']
 RUN_COLS = ', '.join(RUN_COL_NAMES)
 
-OUTLIER = 2.0
+OUTLIER = 3.0
 MIN_RUNS = 10
 
 
