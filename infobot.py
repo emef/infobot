@@ -170,7 +170,7 @@ def start_response(group_id, gamename):
     stats = get_stats(group_id)
     if rtype in stats:
         count, avg, last = (stats[rtype][k] for k in ['count', 'avg', 'last'])
-        return '%s: %d runs. average %d seconds, last run %d seconds' % (
+        return '%s run: %d | Average: %ds | Previous: %ds' % (
             COMMON_RUNS.get(rtype, rtype), count, avg, last)
     else:
         return '%s: first run' % COMMON_RUNS.get(rtype, rtype)
