@@ -385,6 +385,14 @@ def leaderboard(stats):
 
     return top
 
+def lb_table(lb, rtype):
+    scores = lb[rtype]
+    print 'user|# %s runs|avg' % rtype
+    print '---:|---:|---:'
+    for count, avg, user in scores:
+        print '%s|%s|%s' % (user, count, avg)
+
+
 if __name__ == "__main__":
     app.debug = DEBUG
     app.run()
