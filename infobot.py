@@ -1,6 +1,7 @@
 from flask import Flask, request, g
 from contextlib import closing
 from quantile import quantile
+from collections import defaultdict
 import sqlite3
 import datetime
 import re
@@ -176,6 +177,30 @@ def start_response(group_id, gamename):
         return '%s: first run' % COMMON_RUNS.get(rtype, rtype)
 
 ######################################################################
+# DB classes
+class Run(object):
+    def __init__(self, id, group_id, gamename, start_dt, end_dt):
+        self.id = id
+        self.group_id = group_id
+        self.gamename = gamename
+        self.start_dt = mkdt(start_dt)
+        self.end_dt = mkdt(end_dt)
+
+    def to_dict(self):
+        return dict((col, getattr(self, col)) for col in RUN_COL_NAMES)
+
+    def seconds(self):
+        if self.end_dt:
+            c = self.end_dt - self.start_dt
+            return abs(c.days * 86400 + c.seconds)
+
+    def type(self):
+        return run_type(self.gamename)
+
+    def __repr__(self):
+        return '<%s run>' % self.type()
+
+######################################################################
 # db
 def connect_db():
     return sqlite3.connect(app.config['DATABASE'])
@@ -225,26 +250,6 @@ def get_group(user_id):
             return result[0]
         else:
             return add_group(user_id)
-
-# runs
-class Run(object):
-    def __init__(self, id, group_id, gamename, start_dt, end_dt):
-        self.id = id
-        self.group_id = group_id
-        self.gamename = gamename
-        self.start_dt = mkdt(start_dt)
-        self.end_dt = mkdt(end_dt)
-
-    def to_dict(self):
-        return dict((col, getattr(self, col)) for col in RUN_COL_NAMES)
-
-    def seconds(self):
-        if self.end_dt:
-            c = self.end_dt - self.start_dt
-            return abs(c.days * 86400 + c.seconds)
-
-    def type(self):
-        return run_type(self.gamename)
 
 def start_run(group_id, gamename):
     with closing(connect_db()) as db:
@@ -302,6 +307,23 @@ def get_group_runs(group_id):
         cursor.execute(sql, (group_id,))
         return map(lambda row: Run(*row), cursor)
 
+def get_everybodys_runs():
+    with closing(connect_db()) as db:
+        q_cols = ', '.join('r.%s' % x for x in RUN_COLS.split(', '))
+        sql = '''select u.username, %s
+                 from runs r,
+                      run_groups g,
+                      users u
+                 where u.id = g.user_id
+                 and   g.id = r.group_id
+              ''' % q_cols
+        cursor = db.cursor()
+        cursor.execute(sql)
+        users = defaultdict(lambda: [])
+        for row in cursor:
+            users[row[0]].append(Run(*row[1:]))
+        return users
+
 
 ######################################################################
 # utils
@@ -337,6 +359,21 @@ def log(*args):
 
 def is_outlier(x, boundaries):
     return x < boundaries['min'] or x > boundaries['max']
+
+######################################################################
+# weekly stats stuff
+def leaderboard(stats):
+    top = defaultdict(lambda: {})
+    for user, runs in stats.items():
+        for r in runs:
+            rtype = r.type()
+            secs = r.seconds()
+            if secs is not None:
+                if user not in top[rtype]:
+                    top[rtype][user] = {'count': 0, 'total': 0}
+                top[rtype][user]['count'] += 1
+                top[rtype][user]['total'] += secs
+    return top
 
 if __name__ == "__main__":
     app.debug = DEBUG
