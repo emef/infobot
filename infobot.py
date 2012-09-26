@@ -381,7 +381,7 @@ def leaderboard(stats):
                 top[rtype].append((count, total/nconsidered, user))
 
     for rtype in top.keys():
-        top[rtype].sort()
+        top[rtype].sort(reverse=True)
 
     return top
 
