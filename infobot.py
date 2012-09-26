@@ -363,25 +363,26 @@ def is_outlier(x, boundaries):
 ######################################################################
 # weekly stats stuff
 def leaderboard(stats):
-    top = defaultdict(lambda: {})
+    top = defaultdict(lambda: [])
     for user in stats.keys():
-        runs = sorted(stats[user], key=lambda r: r.seconds())
-        x1 = int(0.1 * len(runs))
-        x2 = int(0.9 * len(runs))
-        runs = runs[x1:x2]
-        for r in runs:
+        types = defaultdict(lambda: [])
+        for r in stats[user]:
             rtype = r.type()
-            secs = r.seconds()
-            if secs is not None:
-                if user not in top[rtype]:
-                    top[rtype][user] = {'count': 0, 'total': 0}
-                top[rtype][user]['count'] += 1
-                top[rtype][user]['total'] += secs
-    lb = {}
-    for key in top.keys():
-        lb[key] = sorted((x['count'], x['total']/x['count'], u) for u,x in top[key].items())
+            types[rtype].append(r)
+        for rtype in types.keys():
+            all_secs = sorted(x.seconds() for x in types[rtype])
+            count = len(all_secs)
+            considered = filter(lambda x: x is not None, all_secs)
+            nconsidered = len(considered)
+            x1 = int(0.1 * nconsidered)
+            x2 = int(0.9 * nconsidered)
+            total = sum(considered[x1:x2])
+            top[rtype].append((count, total/nconsidered, user))
 
-    return lb
+    for rtype in top.keys():
+        top[rtype].sort()
+
+    return top
 
 if __name__ == "__main__":
     app.debug = DEBUG
