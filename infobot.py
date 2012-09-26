@@ -373,7 +373,11 @@ def leaderboard(stats):
                     top[rtype][user] = {'count': 0, 'total': 0}
                 top[rtype][user]['count'] += 1
                 top[rtype][user]['total'] += secs
-    return top
+    lb = {}
+    for key in top.keys():
+        lb[key] = sorted((x['count'], x['total']/x['count'], u) for u,x in top[key].items())
+
+    return lb
 
 if __name__ == "__main__":
     app.debug = DEBUG
