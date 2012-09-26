@@ -319,8 +319,17 @@ def get_everybodys_runs():
               ''' % q_cols
         cursor = db.cursor()
         cursor.execute(sql)
-        return list(cursor)
+        users = defaultdict(lambda: [])
+        for row in cursor:
+            users[row[0]].append(Run(*row[1:]))
+        return users
 
+def get_raw_runs():
+    with closing(connect_db()) as db:
+        sql = 'select %s from runs' % RUN_COLS
+        cursor = db.cursor()
+        cursor.execute(sql)
+        return [Run(*row) for row in cursor]
 
 ######################################################################
 # utils
@@ -359,13 +368,6 @@ def is_outlier(x, boundaries):
 
 ######################################################################
 # weekly stats stuff
-def user_stats():
-    users = defaultdict(lambda: [])
-    runs = get_everybodys_runs()
-    for row in runs:
-        users[row[0]].append(Run(*row[1:]))
-    return users
-
 def leaderboard(stats):
     top = defaultdict(lambda: [])
     for user in stats.keys():
@@ -395,6 +397,20 @@ def lb_table(lb, rtype):
     print ':---|---:|---:'
     for count, avg, user in scores:
         print '%s|%s|%s' % (user, count, avg)
+
+
+def time_histogram(stats):
+    minutes_in_day = 60 * 24
+    histo = defaultdict(lambda: set())
+    for user, runs in stats.items():
+        for r in runs:
+            dt = r.start_dt
+            minutes = dt.weekday() * minutes_in_day
+            minutes += dt.hour * 60
+            minutes += dt.minute
+            histo[minutes].add(user)
+    histo = {minute: len(users) for minute, users in histo.items()}
+    return histo
 
 
 if __name__ == "__main__":
