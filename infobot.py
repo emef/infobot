@@ -364,7 +364,11 @@ def is_outlier(x, boundaries):
 # weekly stats stuff
 def leaderboard(stats):
     top = defaultdict(lambda: {})
-    for user, runs in stats.items():
+    for user in stats.keys():
+        runs = sorted(stats[user], key=lambda r: r.seconds())
+        x1 = int(0.1 * len(runs))
+        x2 = int(0.9 * len(runs))
+        runs = runs[x1:x2]
         for r in runs:
             rtype = r.type()
             secs = r.seconds()
