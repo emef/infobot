@@ -319,10 +319,7 @@ def get_everybodys_runs():
               ''' % q_cols
         cursor = db.cursor()
         cursor.execute(sql)
-        users = defaultdict(lambda: [])
-        for row in cursor:
-            users[row[0]].append(Run(*row[1:]))
-        return users
+        return list(cursor)
 
 
 ######################################################################
@@ -362,6 +359,13 @@ def is_outlier(x, boundaries):
 
 ######################################################################
 # weekly stats stuff
+def user_stats():
+    users = defaultdict(lambda: [])
+    runs = get_everybodys_runs()
+    for row in runs:
+        users[row[0]].append(Run(*row[1:]))
+    return users
+
 def leaderboard(stats):
     top = defaultdict(lambda: [])
     for user in stats.keys():
@@ -388,7 +392,7 @@ def leaderboard(stats):
 def lb_table(lb, rtype):
     scores = lb[rtype]
     print 'user|# %s runs|avg' % rtype
-    print '---:|---:|---:'
+    print ':---|---:|---:'
     for count, avg, user in scores:
         print '%s|%s|%s' % (user, count, avg)
 
