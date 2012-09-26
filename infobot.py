@@ -409,7 +409,7 @@ def time_histogram(stats):
             minutes += dt.hour * 60
             minutes += dt.minute
             histo[minutes].add(user)
-    histo = {minute: len(users) for minute, users in histo.items()}
+    histo = dict((minute, len(users)) for minute, users in histo.items())
     return histo
 
 
