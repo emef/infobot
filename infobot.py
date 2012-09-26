@@ -372,9 +372,9 @@ def leaderboard(stats):
         for rtype in types.keys():
             all_secs = sorted(x.seconds() for x in types[rtype])
             count = len(all_secs)
-            if count:
-                considered = filter(lambda x: x is not None, all_secs)
-                nconsidered = len(considered)
+            considered = filter(lambda x: x is not None, all_secs)
+            nconsidered = len(considered)
+            if nconsidered > 0:
                 x1 = int(0.1 * nconsidered)
                 x2 = int(0.9 * nconsidered)
                 total = sum(considered[x1:x2])
