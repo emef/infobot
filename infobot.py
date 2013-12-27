@@ -307,7 +307,7 @@ def get_group_runs(group_id):
         cursor.execute(sql, (group_id,))
         return map(lambda row: Run(*row), cursor)
 
-def get_everybodys_runs():
+def get_everybodys_runs(days_back=28):
     with closing(connect_db()) as db:
         q_cols = ', '.join('r.%s' % x for x in RUN_COLS.split(', '))
         sql = '''select u.username, %s
@@ -316,9 +316,10 @@ def get_everybodys_runs():
                       users u
                  where u.id = g.user_id
                  and   g.id = r.group_id
+                 and   (r.start_dt - date()) < ?
               ''' % q_cols
         cursor = db.cursor()
-        cursor.execute(sql)
+        cursor.execute(sql, [days_back])
         users = defaultdict(lambda: [])
         for row in cursor:
             users[row[0]].append(Run(*row[1:]))
@@ -383,19 +384,19 @@ def leaderboard(stats):
             if nconsidered > 0:
                 x1 = int(0.1 * nconsidered)
                 x2 = int(0.9 * nconsidered)
-                total = sum(considered[x1:x2])
-                top[rtype].append((count, total/nconsidered, user))
+                xs = considered[x1:x2]
+                top[rtype].append((count, sum(xs)/len(xs), user))
 
     for rtype in top.keys():
         top[rtype].sort(reverse=True)
 
     return top
 
-def lb_table(lb, rtype):
+def lb_table(lb, rtype, maxusers=30):
     scores = lb[rtype]
     print 'user|# %s runs|avg' % rtype
     print ':---|---:|---:'
-    for count, avg, user in scores:
+    for count, avg, user in scores[:maxusers]:
         print '%s|%s|%s' % (user, count, avg)
 
 
